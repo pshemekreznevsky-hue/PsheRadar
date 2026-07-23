@@ -73,6 +73,11 @@ const STRINGS = {
     promoDisclaimerFixed: "Ceny i promocje mogą się zmieniać — zawsze sprawdź je w sklepie przed zakupem.",
     back: "Wróć", langLabel: "Język", shopDetected: "Wykryto:",
     askAnswer: "ODPOWIEDŹ", askThinking: "Myślę i sprawdzam źródła...",
+    needApiKey: "Brak klucza API — dodaj go w ustawieniach (ikona ⚙️).",
+    apiError: "Błąd API", settingsTitle: "Klucz API Anthropic",
+    apiKeyLabel: "Wklej swój klucz API (zaczyna się od sk-ant-...):",
+    apiKeyPlaceholder: "sk-ant-...", apiKeySave: "Zapisz",
+    apiKeyHelp: "Klucz zapisuje się tylko lokalnie w tej przeglądarce. Weź go z console.anthropic.com.",
   },
   en: {
     tagline: "Scan the place, ask by voice, or just type what you want to know.",
@@ -95,6 +100,11 @@ const STRINGS = {
     promoDisclaimerFixed: "Prices and deals can change — always double-check in store before buying.",
     back: "Back", langLabel: "Language", shopDetected: "Detected:",
     askAnswer: "ANSWER", askThinking: "Thinking and checking sources...",
+    needApiKey: "No API key — add one in settings (⚙️ icon).",
+    apiError: "API error", settingsTitle: "Anthropic API key",
+    apiKeyLabel: "Paste your API key (starts with sk-ant-...):",
+    apiKeyPlaceholder: "sk-ant-...", apiKeySave: "Save",
+    apiKeyHelp: "The key is stored only locally in this browser. Get one at console.anthropic.com.",
   },
   de: {
     tagline: "Scanne den Ort, frag per Sprache, oder tippe einfach deine Frage.",
@@ -117,6 +127,11 @@ const STRINGS = {
     promoDisclaimerFixed: "Preise können sich ändern — im Geschäft nochmal prüfen.",
     back: "Zurück", langLabel: "Sprache", shopDetected: "Erkannt:",
     askAnswer: "ANTWORT", askThinking: "Ich denke nach und prüfe Quellen...",
+    needApiKey: "Kein API-Schlüssel — füge einen in den Einstellungen hinzu (⚙️).",
+    apiError: "API-Fehler", settingsTitle: "Anthropic API-Schlüssel",
+    apiKeyLabel: "Füge deinen API-Schlüssel ein (beginnt mit sk-ant-...):",
+    apiKeyPlaceholder: "sk-ant-...", apiKeySave: "Speichern",
+    apiKeyHelp: "Der Schlüssel wird nur lokal in diesem Browser gespeichert. Erhältlich auf console.anthropic.com.",
   },
   uk: {
     tagline: "Скануй місце, запитай голосом або просто напиши питання.",
@@ -139,6 +154,11 @@ const STRINGS = {
     promoDisclaimerFixed: "Ціни можуть змінюватись — перевіряйте в магазині.",
     back: "Назад", langLabel: "Мова", shopDetected: "Виявлено:",
     askAnswer: "ВІДПОВІДЬ", askThinking: "Думаю і перевіряю джерела...",
+    needApiKey: "Немає ключа API — додайте його в налаштуваннях (⚙️).",
+    apiError: "Помилка API", settingsTitle: "Ключ API Anthropic",
+    apiKeyLabel: "Вставте свій ключ API (починається з sk-ant-...):",
+    apiKeyPlaceholder: "sk-ant-...", apiKeySave: "Зберегти",
+    apiKeyHelp: "Ключ зберігається лише локально у цьому браузері. Отримайте його на console.anthropic.com.",
   },
 };
 
@@ -157,10 +177,19 @@ async function findNearbyShop(lat, lon) {
   } catch (e) { return null; }
 }
 
-async function callClaude(contentBlocks) {
+class MissingApiKeyError extends Error {}
+class ApiCallError extends Error {}
+
+async function callClaude(contentBlocks, apiKey) {
+  if (!apiKey) throw new MissingApiKeyError("no api key");
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 1500,
@@ -168,6 +197,11 @@ async function callClaude(contentBlocks) {
       tools: [{ type: "web_search_20250305", name: "web_search" }],
     }),
   });
+  if (!response.ok) {
+    let detail = "";
+    try { const errBody = await response.json(); detail = (errBody.error && errBody.error.message) || ""; } catch (e) {}
+    throw new ApiCallError(detail || `HTTP ${response.status}`);
+  }
   const data = await response.json();
   const text = (data.content || []).map((b) => (b.type === "text" ? b.text : "")).filter(Boolean).join("\n");
   const clean = text.replace(/```json|```/g, "").trim();
@@ -177,6 +211,8 @@ async function callClaude(contentBlocks) {
 
 function FieldScout() {
   const [lang, setLang] = useState("pl");
+  const [apiKey, setApiKey] = useState(() => { try { return localStorage.getItem("psheradar_api_key") || ""; } catch (e) { return ""; } });
+  const [showSettings, setShowSettings] = useState(false);
   const [step, setStep] = useState("start");
   const [photo, setPhoto] = useState(null);
   const [coords, setCoords] = useState(null);
@@ -197,6 +233,8 @@ function FieldScout() {
   const recognitionRef = useRef(null);
   const T = (key) => t(lang, key);
 
+  useEffect(() => { if (!apiKey) setShowSettings(true); }, []);
+
   const speak = useCallback((text) => {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
@@ -212,6 +250,24 @@ function FieldScout() {
   }, [lang]);
 
   const stopSpeaking = () => { window.speechSynthesis && window.speechSynthesis.cancel(); setSpeaking(false); };
+
+  const saveApiKey = (key) => {
+    setApiKey(key);
+    try { localStorage.setItem("psheradar_api_key", key); } catch (e) {}
+    setShowSettings(false);
+  };
+
+  const handleApiError = (e) => {
+    if (e instanceof MissingApiKeyError) {
+      setShowSettings(true);
+      setErrorMsg(T("needApiKey"));
+    } else if (e instanceof ApiCallError) {
+      setErrorMsg(`${T("apiError")}: ${e.message}`);
+    } else {
+      setErrorMsg(T("genericError"));
+    }
+    setStep("error");
+  };
 
   const fetchLocation = useCallback(() => {
     return new Promise((resolve) => {
@@ -290,15 +346,15 @@ Respond ONLY in JSON, no markdown:
     contentBlocks.push({ type: "text", text: promptText });
 
     try {
-      const parsed = await callClaude(contentBlocks);
+      const parsed = await callClaude(contentBlocks, apiKey);
       setResult(parsed);
       setStep("result");
       if (autoSpeak) {
         const spoken = [parsed.place, parsed.summary, ...(parsed.highlights || []).map((h) => h.text)].filter(Boolean).join(". ");
         setTimeout(() => speak(spoken), 300);
       }
-    } catch (e) { setErrorMsg(T("genericError")); setStep("error"); }
-  }, [photo, coords, placeName, autoSpeak, speak, lang]);
+    } catch (e) { handleApiError(e); }
+  }, [photo, coords, placeName, autoSpeak, speak, lang, apiKey]);
 
   const runAsk = useCallback(async (question) => {
     if (!question || !question.trim()) return;
@@ -318,12 +374,12 @@ Respond ONLY in JSON, no markdown:
 {"answer": "your answer", "verified": true, "sources": ["https://..."]}`;
 
     try {
-      const parsed = await callClaude([{ type: "text", text: promptText }]);
+      const parsed = await callClaude([{ type: "text", text: promptText }], apiKey);
       setAskResult({ question, ...parsed });
       setStep("ask-result");
       if (autoSpeak) setTimeout(() => speak(parsed.answer), 300);
-    } catch (e) { setErrorMsg(T("genericError")); setStep("error"); }
-  }, [coords, placeName, autoSpeak, speak, lang]);
+    } catch (e) { handleApiError(e); }
+  }, [coords, placeName, autoSpeak, speak, lang, apiKey]);
 
   const startPromoCheck = async () => {
     setStep("promo-checking");
@@ -350,10 +406,10 @@ RULES:
 Respond ONLY in JSON, no markdown:
 {"shop": "shop name", "verified": true, "items": [{"name":"...", "promoPrice":"...", "competitorPrice":"... or omit", "note":"...", "source":"https://..."}]}`;
     try {
-      const parsed = await callClaude([{ type: "text", text: promptText }]);
+      const parsed = await callClaude([{ type: "text", text: promptText }], apiKey);
       setPromoResult(parsed);
       setStep("promo-result");
-    } catch (e) { setErrorMsg(T("genericError")); setStep("error"); }
+    } catch (e) { handleApiError(e); }
   };
 
   const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -386,7 +442,9 @@ Respond ONLY in JSON, no markdown:
   return (
     <div style={{ minHeight: "100vh", background: `radial-gradient(circle at 30% 0%, ${BG2} 0%, ${BG} 55%)`, color: TEXT, fontFamily: "'Inter', sans-serif", display: "flex", justifyContent: "center", padding: "20px 16px 40px" }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
-        <Header lang={lang} setLang={setLang} T={T} autoSpeak={autoSpeak} onToggleAutoSpeak={() => setAutoSpeak((v) => !v)} />
+        <Header lang={lang} setLang={setLang} T={T} autoSpeak={autoSpeak} onToggleAutoSpeak={() => setAutoSpeak((v) => !v)}
+          onOpenSettings={() => setShowSettings(true)} />
+        {showSettings && <SettingsModal apiKey={apiKey} onSave={saveApiKey} onClose={() => setShowSettings(false)} T={T} />}
         <AskBar listening={listening} onToggleMic={toggleListening} T={T} value={askQuery} onChange={setAskQuery}
           onSubmit={() => { runAsk(askQuery); setAskQuery(""); }} />
 
@@ -421,7 +479,7 @@ Respond ONLY in JSON, no markdown:
   );
 }
 
-function Header({ lang, setLang, T, autoSpeak, onToggleAutoSpeak }) {
+function Header({ lang, setLang, T, autoSpeak, onToggleAutoSpeak, onOpenSettings }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -429,10 +487,30 @@ function Header({ lang, setLang, T, autoSpeak, onToggleAutoSpeak }) {
         <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 19, fontWeight: 700, letterSpacing: -0.3 }}>PsheRadar</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={onOpenSettings} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, width: 32, height: 32, color: TEXT_MUTED, cursor: "pointer", fontSize: 14 }}>⚙️</button>
         <button onClick={onToggleAutoSpeak} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, width: 32, height: 32, color: autoSpeak ? CYAN : TEXT_MUTED, cursor: "pointer", fontSize: 14 }}>{autoSpeak ? "🔊" : "🔇"}</button>
         <select value={lang} onChange={(e) => setLang(e.target.value)} style={{ background: CARD, color: TEXT, border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 12, padding: "6px 8px" }}>
           <option value="pl">PL</option><option value="en">EN</option><option value="de">DE</option><option value="uk">UA</option>
         </select>
+      </div>
+    </div>
+  );
+}
+
+function SettingsModal({ apiKey, onSave, onClose, T }) {
+  const [value, setValue] = useState(apiKey || "");
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }} onClick={onClose}>
+      <div style={{ background: CARD, borderRadius: 18, padding: "22px 20px", border: `1px solid ${BORDER}`, width: "100%", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{T("settingsTitle")}</h3>
+        <label style={{ fontSize: 12, color: TEXT_MUTED, display: "block", marginBottom: 6 }}>{T("apiKeyLabel")}</label>
+        <input type="password" value={value} onChange={(e) => setValue(e.target.value)} placeholder={T("apiKeyPlaceholder")}
+          style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `1px solid ${BORDER}`, background: BG2, color: TEXT, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, marginBottom: 10 }} />
+        <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 16, lineHeight: 1.5 }}>{T("apiKeyHelp")}</p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "12px", borderRadius: 14, border: `1px solid ${BORDER}`, background: "transparent", color: TEXT_MUTED, cursor: "pointer" }}>✕</button>
+          <button onClick={() => onSave(value.trim())} style={{ flex: 3, padding: "12px", borderRadius: 14, border: "none", background: GRADIENT, color: "#0d0c18", fontWeight: 700, cursor: "pointer" }}>{T("apiKeySave")}</button>
+        </div>
       </div>
     </div>
   );
