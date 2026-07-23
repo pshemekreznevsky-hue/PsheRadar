@@ -3,24 +3,26 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Odkrywca</title>
+<title>PsheRadar</title>
 
 <link rel="manifest" href="./manifest.json" />
-<meta name="theme-color" content="#16241f" />
+<meta name="theme-color" content="#0d0c18" />
 <link rel="icon" href="./icon-192.png" />
 <link rel="apple-touch-icon" href="./icon-192.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Odkrywca" />
+<meta name="apple-mobile-web-app-title" content="PsheRadar" />
 <meta name="mobile-web-app-capable" content="yes" />
 
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <style>
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  select { font-family: inherit; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  input::placeholder { color: #6b6b85; }
+  input:focus { outline: none; }
 </style>
 
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
@@ -33,115 +35,126 @@
 <script type="text/babel" data-presets="react">
 const { useState, useRef, useEffect, useCallback } = React;
 
+// ---------- theme ----------
+const BG = "#0d0c18";
+const BG2 = "#151327";
+const CARD = "#181629";
+const VIOLET = "#7C5CFC";
+const CYAN = "#22D3EE";
+const GRADIENT = "linear-gradient(135deg, #7C5CFC, #22D3EE)";
+const TEXT = "#F1F0FA";
+const TEXT_MUTED = "#8D8AA8";
+const BORDER = "rgba(255,255,255,0.08)";
+
 // ---------- i18n ----------
 const LANG_NAMES = { pl: "polski", en: "English", de: "Deutsch", uk: "українська" };
+const SPEECH_LANG = { pl: "pl-PL", en: "en-US", de: "de-DE", uk: "uk-UA" };
+const TRIGGERS = { pl: "gdzie jestem", en: "where am i", de: "wo bin ich", uk: "де я" };
 
 const STRINGS = {
   pl: {
-    tagline: "Zrób zdjęcie, udostępnij lokalizację, albo po prostu powiedz „gdzie jestem”.",
-    takePhoto: "Zrób zdjęcie", removePhoto: "Usuń zdjęcie",
-    useLocation: "Użyj mojej lokalizacji", locFetched: "Lokalizacja pobrana", locating: "Namierzanie...",
+    tagline: "Zeskanuj miejsce, zapytaj głosem albo po prostu napisz, co chcesz wiedzieć.",
+    askPlaceholder: "Zapytaj o cokolwiek, np. co tu warto zobaczyć...",
+    takePhoto: "Zdjęcie", removePhoto: "Usuń zdjęcie",
+    useLocation: "Lokalizacja", locFetched: "Lokalizacja gotowa", locating: "Namierzanie...",
     locDenied: "Brak dostępu do lokalizacji — możesz kontynuować samym zdjęciem.",
-    scan: "Skanuj miejsce", loading: "Sprawdzanie okolicy i weryfikacja faktów w sieci...",
-    listen: "Słucham", sayCmd: "Powiedz „gdzie jestem”", voiceHintDefault: "Komenda głosowa do szybkiego skanu lokalizacji",
-    fieldNote: "NOTATKA TERENOWA", verified: "Zweryfikowano wyszukiwarką", unverified: "Niepotwierdzone — ostrożnie",
-    newScan: "Nowy skan", retry: "Spróbuj ponownie", genericError: "Nie udało się odczytać odpowiedzi. Spróbuj ponownie.",
+    scan: "Skanuj miejsce", loading: "Szukam i weryfikuję w sieci...",
+    listening: "Słucham...", voiceHintDefault: "Stuknij mikrofon i zapytaj o cokolwiek",
+    fieldNote: "NOTATKA", verified: "Zweryfikowano", unverified: "Niepotwierdzone",
+    newScan: "Nowy skan", retry: "Spróbuj ponownie", genericError: "Coś poszło nie tak. Spróbuj ponownie.",
     needPhotoOrLoc: "Zrób zdjęcie albo udostępnij lokalizację, żeby zacząć.",
     promoButton: "Promocje w pobliżu", promoChecking: "Sprawdzam okolicę sklepów...",
     promoSearching: "Szukam aktualnych promocji i porównuję ceny...",
-    promoNoShop: "Nie wykryto sklepu w promieniu 25–30 m (GPS w budynkach bywa niedokładny).",
+    promoNoShop: "Nie wykryto sklepu w promieniu 50 m (GPS w budynkach bywa niedokładny).",
     promoManualLabel: "Wpisz nazwę sklepu lub sieci ręcznie:",
     promoManualPlaceholder: "np. Biedronka, Lidl, Media Markt...",
     promoManualSubmit: "Sprawdź promocje",
     promoNoDeals: "Nie znaleziono zweryfikowanych, aktualnych promocji dla tego sklepu.",
     promoDisclaimerFixed: "Ceny i promocje mogą się zmieniać — zawsze sprawdź je w sklepie przed zakupem.",
-    promoBack: "Wróć", langLabel: "Język", shopDetected: "Wykryto:",
+    back: "Wróć", langLabel: "Język", shopDetected: "Wykryto:",
+    askAnswer: "ODPOWIEDŹ", askThinking: "Myślę i sprawdzam źródła...",
   },
   en: {
-    tagline: "Take a photo, share your location, or just say “where am I”.",
-    takePhoto: "Take a photo", removePhoto: "Remove photo",
-    useLocation: "Use my location", locFetched: "Location acquired", locating: "Locating...",
+    tagline: "Scan the place, ask by voice, or just type what you want to know.",
+    askPlaceholder: "Ask anything, e.g. what's worth seeing here...",
+    takePhoto: "Photo", removePhoto: "Remove photo",
+    useLocation: "Location", locFetched: "Location ready", locating: "Locating...",
     locDenied: "No location access — you can continue with a photo only.",
-    scan: "Scan this place", loading: "Checking the area and verifying facts online...",
-    listen: "Listening", sayCmd: "Say “where am I”", voiceHintDefault: "Voice command for a quick location scan",
-    fieldNote: "FIELD NOTE", verified: "Verified with search", unverified: "Unverified — take care",
-    newScan: "New scan", retry: "Try again", genericError: "Couldn't read the response. Please try again.",
+    scan: "Scan this place", loading: "Searching and verifying online...",
+    listening: "Listening...", voiceHintDefault: "Tap the mic and ask anything",
+    fieldNote: "NOTE", verified: "Verified", unverified: "Unverified",
+    newScan: "New scan", retry: "Try again", genericError: "Something went wrong. Please try again.",
     needPhotoOrLoc: "Take a photo or share your location to get started.",
     promoButton: "Deals nearby", promoChecking: "Checking nearby shops...",
     promoSearching: "Looking up current deals and comparing prices...",
-    promoNoShop: "No shop detected within 25–30 m (indoor GPS can be inaccurate).",
+    promoNoShop: "No shop detected within 50 m (indoor GPS can be inaccurate).",
     promoManualLabel: "Type the shop or chain name manually:",
     promoManualPlaceholder: "e.g. Walmart, Target, Best Buy...",
     promoManualSubmit: "Check deals",
     promoNoDeals: "No verified, current deals found for this shop.",
     promoDisclaimerFixed: "Prices and deals can change — always double-check in store before buying.",
-    promoBack: "Back", langLabel: "Language", shopDetected: "Detected:",
+    back: "Back", langLabel: "Language", shopDetected: "Detected:",
+    askAnswer: "ANSWER", askThinking: "Thinking and checking sources...",
   },
   de: {
-    tagline: "Mach ein Foto, teile deinen Standort, oder sag einfach „wo bin ich“.",
-    takePhoto: "Foto machen", removePhoto: "Foto entfernen",
-    useLocation: "Meinen Standort nutzen", locFetched: "Standort ermittelt", locating: "Ortung läuft...",
-    locDenied: "Kein Standortzugriff — du kannst nur mit einem Foto fortfahren.",
-    scan: "Ort scannen", loading: "Umgebung wird geprüft und Fakten werden online verifiziert...",
-    listen: "Ich höre zu", sayCmd: "Sag „wo bin ich“", voiceHintDefault: "Sprachbefehl für einen schnellen Standort-Scan",
-    fieldNote: "FELDNOTIZ", verified: "Durch Suche verifiziert", unverified: "Unbestätigt — Vorsicht",
-    newScan: "Neuer Scan", retry: "Erneut versuchen", genericError: "Antwort konnte nicht gelesen werden. Bitte erneut versuchen.",
+    tagline: "Scanne den Ort, frag per Sprache, oder tippe einfach deine Frage.",
+    askPlaceholder: "Frag alles, z. B. was man hier sehen sollte...",
+    takePhoto: "Foto", removePhoto: "Foto entfernen",
+    useLocation: "Standort", locFetched: "Standort bereit", locating: "Ortung läuft...",
+    locDenied: "Kein Standortzugriff — nur mit Foto möglich.",
+    scan: "Ort scannen", loading: "Online-Suche und Verifizierung läuft...",
+    listening: "Ich höre zu...", voiceHintDefault: "Mikrofon antippen und alles fragen",
+    fieldNote: "NOTIZ", verified: "Verifiziert", unverified: "Unbestätigt",
+    newScan: "Neuer Scan", retry: "Erneut versuchen", genericError: "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
     needPhotoOrLoc: "Mach ein Foto oder teile deinen Standort, um zu starten.",
     promoButton: "Angebote in der Nähe", promoChecking: "Geschäfte in der Nähe werden geprüft...",
-    promoSearching: "Aktuelle Angebote werden gesucht und Preise verglichen...",
-    promoNoShop: "Kein Geschäft im Umkreis von 25–30 m erkannt (GPS in Gebäuden oft ungenau).",
+    promoSearching: "Aktuelle Angebote werden gesucht und verglichen...",
+    promoNoShop: "Kein Geschäft im Umkreis von 50 m erkannt.",
     promoManualLabel: "Geschäft oder Kette manuell eingeben:",
     promoManualPlaceholder: "z. B. Rewe, Aldi, Media Markt...",
     promoManualSubmit: "Angebote prüfen",
-    promoNoDeals: "Keine verifizierten, aktuellen Angebote für dieses Geschäft gefunden.",
-    promoDisclaimerFixed: "Preise und Angebote können sich ändern — bitte im Geschäft nochmal prüfen.",
-    promoBack: "Zurück", langLabel: "Sprache", shopDetected: "Erkannt:",
+    promoNoDeals: "Keine verifizierten Angebote gefunden.",
+    promoDisclaimerFixed: "Preise können sich ändern — im Geschäft nochmal prüfen.",
+    back: "Zurück", langLabel: "Sprache", shopDetected: "Erkannt:",
+    askAnswer: "ANTWORT", askThinking: "Ich denke nach und prüfe Quellen...",
   },
   uk: {
-    tagline: "Зробіть фото, поділіться місцем або скажіть «де я».",
-    takePhoto: "Зробити фото", removePhoto: "Видалити фото",
-    useLocation: "Використати моє місцезнаходження", locFetched: "Місцезнаходження отримано", locating: "Визначення...",
+    tagline: "Скануй місце, запитай голосом або просто напиши питання.",
+    askPlaceholder: "Запитай про що завгодно, напр. що тут варто побачити...",
+    takePhoto: "Фото", removePhoto: "Видалити фото",
+    useLocation: "Локація", locFetched: "Локацію отримано", locating: "Визначення...",
     locDenied: "Немає доступу до локації — можна продовжити лише з фото.",
-    scan: "Скануй місце", loading: "Перевірка околиці та фактів в інтернеті...",
-    listen: "Слухаю", sayCmd: "Скажіть «де я»", voiceHintDefault: "Голосова команда для швидкого сканування",
-    fieldNote: "ПОЛЬОВИЙ ЗАПИС", verified: "Перевірено пошуком", unverified: "Непідтверджено — обережно",
-    newScan: "Новий скан", retry: "Спробувати ще раз", genericError: "Не вдалося прочитати відповідь. Спробуйте ще раз.",
+    scan: "Скануй місце", loading: "Пошук і перевірка в інтернеті...",
+    listening: "Слухаю...", voiceHintDefault: "Натисніть мікрофон і запитайте будь-що",
+    fieldNote: "НОТАТКА", verified: "Перевірено", unverified: "Непідтверджено",
+    newScan: "Новий скан", retry: "Спробувати ще раз", genericError: "Щось пішло не так. Спробуйте ще раз.",
     needPhotoOrLoc: "Зробіть фото або поділіться локацією, щоб почати.",
     promoButton: "Акції поруч", promoChecking: "Перевірка магазинів поруч...",
     promoSearching: "Пошук актуальних акцій і порівняння цін...",
-    promoNoShop: "Магазин не виявлено в радіусі 25–30 м (GPS в приміщенні буває неточним).",
+    promoNoShop: "Магазин не виявлено в радіусі 50 м.",
     promoManualLabel: "Введіть назву магазину вручну:",
     promoManualPlaceholder: "напр. Biedronka, Lidl, Rozetka...",
     promoManualSubmit: "Перевірити акції",
-    promoNoDeals: "Не знайдено перевірених актуальних акцій для цього магазину.",
-    promoDisclaimerFixed: "Ціни та акції можуть змінюватись — перевіряйте в магазині перед покупкою.",
-    promoBack: "Назад", langLabel: "Мова", shopDetected: "Виявлено:",
+    promoNoDeals: "Не знайдено перевірених акцій.",
+    promoDisclaimerFixed: "Ціни можуть змінюватись — перевіряйте в магазині.",
+    back: "Назад", langLabel: "Мова", shopDetected: "Виявлено:",
+    askAnswer: "ВІДПОВІДЬ", askThinking: "Думаю і перевіряю джерела...",
   },
 };
 
 function t(lang, key) { return (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.pl[key] || key; }
 
-// ---------- Overpass: detect nearby shop ----------
 async function findNearbyShop(lat, lon) {
-  const query = `[out:json][timeout:15];(node(around:30,${lat},${lon})[shop];way(around:30,${lat},${lon})[shop];node(around:30,${lat},${lon})["shop"="mall"];way(around:30,${lat},${lon})["shop"="mall"];);out center 10;`;
+  const query = `[out:json][timeout:15];(node(around:50,${lat},${lon})[shop];way(around:50,${lat},${lon})[shop];node(around:50,${lat},${lon})["shop"="mall"];way(around:50,${lat},${lon})["shop"="mall"];);out center 10;`;
   try {
-    const res = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      body: query,
-    });
+    const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query });
     const data = await res.json();
     const elements = data.elements || [];
     if (elements.length === 0) return null;
     const named = elements.find((e) => e.tags && e.tags.name) || elements[0];
     if (!named.tags) return null;
-    return {
-      name: named.tags.name || named.tags.brand || named.tags.shop,
-      shopType: named.tags.shop || "sklep",
-      brand: named.tags.brand || null,
-    };
-  } catch (e) {
-    return null;
-  }
+    return { name: named.tags.name || named.tags.brand || named.tags.shop, shopType: named.tags.shop || "sklep", brand: named.tags.brand || null };
+  } catch (e) { return null; }
 }
 
 async function callClaude(contentBlocks) {
@@ -164,16 +177,16 @@ async function callClaude(contentBlocks) {
 
 function FieldScout() {
   const [lang, setLang] = useState("pl");
-  const [step, setStep] = useState("start"); // start|loading|result|error|promo-checking|promo-manual|promo-loading|promo-result
+  const [step, setStep] = useState("start");
   const [photo, setPhoto] = useState(null);
   const [coords, setCoords] = useState(null);
   const [placeName, setPlaceName] = useState(null);
   const [locStatus, setLocStatus] = useState("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [result, setResult] = useState(null);
-  const [entryNo, setEntryNo] = useState(1);
+  const [askResult, setAskResult] = useState(null);
+  const [askQuery, setAskQuery] = useState("");
   const [listening, setListening] = useState(false);
-  const [voiceHint, setVoiceHint] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [detectedShop, setDetectedShop] = useState(null);
@@ -182,15 +195,13 @@ function FieldScout() {
 
   const fileInputRef = useRef(null);
   const recognitionRef = useRef(null);
-
   const T = (key) => t(lang, key);
 
   const speak = useCallback((text) => {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
-    const speechLangMap = { pl: "pl-PL", en: "en-US", de: "de-DE", uk: "uk-UA" };
-    utter.lang = speechLangMap[lang] || "pl-PL";
+    utter.lang = SPEECH_LANG[lang] || "pl-PL";
     const voices = window.speechSynthesis.getVoices();
     const match = voices.find((v) => v.lang && v.lang.startsWith(lang));
     if (match) utter.voice = match;
@@ -239,7 +250,10 @@ function FieldScout() {
     reader.readAsDataURL(file);
   };
 
-  const reset = () => { setStep("start"); setPhoto(null); setResult(null); setErrorMsg(""); setPromoResult(null); setDetectedShop(null); setManualShop(""); stopSpeaking(); };
+  const reset = () => {
+    setStep("start"); setPhoto(null); setResult(null); setAskResult(null); setErrorMsg("");
+    setPromoResult(null); setDetectedShop(null); setManualShop(""); setAskQuery(""); stopSpeaking();
+  };
 
   const runScan = useCallback(async (overrides = {}) => {
     const { photoOverride, coordsOverride, placeOverride } = overrides;
@@ -248,26 +262,28 @@ function FieldScout() {
     const usedPlace = placeOverride !== undefined ? placeOverride : placeName;
 
     if (!usedPhoto && !usedCoords) { setErrorMsg(T("needPhotoOrLoc")); return; }
-
-    setStep("loading");
-    setErrorMsg("");
+    setStep("loading"); setErrorMsg("");
 
     const locationLine = usedCoords
       ? `GPS: ${usedCoords.lat.toFixed(5)}, ${usedCoords.lon.toFixed(5)}.${usedPlace ? ` Likely address: ${usedPlace}.` : ""}`
       : "No GPS data — rely on the photo only.";
 
-    const promptText = `You are a field-guide explorer assistant. Based on the data below, identify the place and give ONE specific, lesser-known, fact-checked highlight about it.
+    const depthInstruction = usedPhoto
+      ? "A photo is attached. Focus on the specific subject in the photo and give ONE precise, fact-checked highlight about it."
+      : "No photo — only location. Give 2 to 4 of the most interesting, important, fact-checked highlights about this exact place and its immediate surroundings (history, notable nearby landmarks, something distinctive worth knowing).";
+
+    const promptText = `You are a field-guide explorer assistant. ${depthInstruction}
 
 ${locationLine}
 
 RULES (important, to avoid making things up):
-1. ALWAYS use the web_search tool to verify the fact before answering.
-2. If you cannot confirm it with a credible source, set "verified": false and give a more general, safe description instead.
-3. In "sources" list up to 2 URLs you actually used.
+1. ALWAYS use the web_search tool to verify facts before answering.
+2. If you cannot confirm something with a credible source, set "verified": false for that item, or omit it.
+3. In "sources" list up to 3 URLs you actually used overall.
 4. Respond in this language: ${LANG_NAMES[lang]}.
 
 Respond ONLY in JSON, no markdown:
-{"place": "short place name", "fact": "2-4 sentence highlight", "tags": ["tag1","tag2","tag3"], "verified": true, "sources": ["https://..."]}`;
+{"place": "short place name", "summary": "1 sentence intro", "highlights": [{"title":"short title","text":"1-3 sentences"}], "tags": ["tag1","tag2","tag3"], "verified": true, "sources": ["https://..."]}`;
 
     const contentBlocks = [];
     if (usedPhoto) contentBlocks.push({ type: "image", source: { type: "base64", media_type: usedPhoto.mediaType, data: usedPhoto.base64 } });
@@ -276,81 +292,91 @@ Respond ONLY in JSON, no markdown:
     try {
       const parsed = await callClaude(contentBlocks);
       setResult(parsed);
-      setEntryNo((n) => n + 1);
       setStep("result");
-      if (autoSpeak) setTimeout(() => speak(`${parsed.place}. ${parsed.fact}`), 300);
-    } catch (e) {
-      setErrorMsg(T("genericError"));
-      setStep("error");
-    }
+      if (autoSpeak) {
+        const spoken = [parsed.place, parsed.summary, ...(parsed.highlights || []).map((h) => h.text)].filter(Boolean).join(". ");
+        setTimeout(() => speak(spoken), 300);
+      }
+    } catch (e) { setErrorMsg(T("genericError")); setStep("error"); }
   }, [photo, coords, placeName, autoSpeak, speak, lang]);
 
-  // ---------- Promo flow ----------
+  const runAsk = useCallback(async (question) => {
+    if (!question || !question.trim()) return;
+    setStep("ask-loading"); setErrorMsg("");
+    const locationLine = coords ? `User's current GPS: ${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}.${placeName ? ` Likely address: ${placeName}.` : ""}` : "No location shared.";
+    const promptText = `You are a helpful on-the-go field assistant. The user asked, out loud or by typing, this question: "${question}"
+
+Context: ${locationLine}
+
+RULES:
+1. If the question relates to a place, current facts, prices, or anything time-sensitive, ALWAYS use web_search to verify before answering.
+2. Keep the answer concise and conversational (2-5 sentences), suitable to be read aloud.
+3. If you cannot verify something, say so plainly rather than guessing.
+4. Respond in this language: ${LANG_NAMES[lang]}.
+
+Respond ONLY in JSON, no markdown:
+{"answer": "your answer", "verified": true, "sources": ["https://..."]}`;
+
+    try {
+      const parsed = await callClaude([{ type: "text", text: promptText }]);
+      setAskResult({ question, ...parsed });
+      setStep("ask-result");
+      if (autoSpeak) setTimeout(() => speak(parsed.answer), 300);
+    } catch (e) { setErrorMsg(T("genericError")); setStep("error"); }
+  }, [coords, placeName, autoSpeak, speak, lang]);
+
   const startPromoCheck = async () => {
     setStep("promo-checking");
     let usedCoords = coords;
-    if (!usedCoords) {
-      const loc = await fetchLocation();
-      usedCoords = loc && loc.coords;
-    }
+    if (!usedCoords) { const loc = await fetchLocation(); usedCoords = loc && loc.coords; }
     if (!usedCoords) { setStep("promo-manual"); return; }
     const shop = await findNearbyShop(usedCoords.lat, usedCoords.lon);
-    if (shop) {
-      setDetectedShop(shop);
-      runPromoScan(shop.name);
-    } else {
-      setStep("promo-manual");
-    }
+    if (shop) { setDetectedShop(shop); runPromoScan(shop.name); } else { setStep("promo-manual"); }
   };
 
   const runPromoScan = async (shopName) => {
     setStep("promo-loading");
     const promptText = `You are a shopping assistant. The user is at or near this shop: "${shopName}".
 
-Search the web for that shop's CURRENT, real, publicly published promotions (weekly flyer, official site, or reliable price-comparison site), and compare up to 5 promoted items against typical competitor prices.
+Search the web for that shop's CURRENT, real, publicly published promotions, and compare up to 5 promoted items against typical competitor prices.
 
-RULES (important, to avoid making things up):
-1. ALWAYS use web_search. Only include items you can back with a real, current, credible source.
-2. If you find no verifiable current promotions, return an empty "items" array and set "verified": false.
-3. Never invent prices. If a competitor price isn't verifiable, omit that field for that item rather than guessing.
-4. Cap at 5 items, prioritizing the best real value.
+RULES:
+1. ALWAYS use web_search. Only include items backed by a real, current, credible source.
+2. If nothing verifiable is found, return an empty "items" array and "verified": false.
+3. Never invent prices.
+4. Cap at 5 items.
 5. Respond in this language: ${LANG_NAMES[lang]}.
 
 Respond ONLY in JSON, no markdown:
-{"shop": "shop name", "verified": true, "items": [{"name":"...", "promoPrice":"...", "competitorPrice":"... or omit", "note":"...", "source":"https://..."}], "checkedAt": "short note about recency"}`;
-
+{"shop": "shop name", "verified": true, "items": [{"name":"...", "promoPrice":"...", "competitorPrice":"... or omit", "note":"...", "source":"https://..."}]}`;
     try {
       const parsed = await callClaude([{ type: "text", text: promptText }]);
       setPromoResult(parsed);
       setStep("promo-result");
-    } catch (e) {
-      setErrorMsg(T("genericError"));
-      setStep("error");
-    }
+    } catch (e) { setErrorMsg(T("genericError")); setStep("error"); }
   };
 
   const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   const toggleListening = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { setVoiceHint("—"); return; }
+    if (!SR) return;
     if (listening) { recognitionRef.current && recognitionRef.current.stop(); setListening(false); return; }
     const recognition = new SR();
-    const speechLangMap = { pl: "pl-PL", en: "en-US", de: "de-DE", uk: "uk-UA" };
-    recognition.lang = speechLangMap[lang] || "pl-PL";
+    recognition.lang = SPEECH_LANG[lang] || "pl-PL";
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.onstart = () => { setListening(true); setVoiceHint(T("sayCmd")); };
+    recognition.onstart = () => setListening(true);
     recognition.onerror = () => setListening(false);
     recognition.onend = () => setListening(false);
     recognition.onresult = async (event) => {
       const transcript = event.results[0][0].transcript;
       const norm = normalize(transcript);
-      const triggers = { pl: "gdzie jestem", en: "where am i", de: "wo bin ich", uk: "де я" };
-      setVoiceHint(transcript);
-      if (norm.includes(triggers[lang] || "gdzie jestem")) {
+      if (norm.includes(TRIGGERS[lang] || "gdzie jestem")) {
         const loc = await fetchLocation();
         if (loc) runScan({ coordsOverride: loc.coords, placeOverride: loc.placeName, photoOverride: null });
+      } else {
+        runAsk(transcript);
       }
     };
     recognitionRef.current = recognition;
@@ -358,10 +384,11 @@ Respond ONLY in JSON, no markdown:
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at top, #1f342c 0%, #0f1c17 70%)", color: "#ede4d3", fontFamily: "'Fraunces', serif", display: "flex", justifyContent: "center", padding: "24px 16px" }}>
+    <div style={{ minHeight: "100vh", background: `radial-gradient(circle at 30% 0%, ${BG2} 0%, ${BG} 55%)`, color: TEXT, fontFamily: "'Inter', sans-serif", display: "flex", justifyContent: "center", padding: "20px 16px 40px" }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
-        <Header entryNo={entryNo} lang={lang} setLang={setLang} T={T} />
-        <VoiceBar listening={listening} voiceHint={voiceHint} onToggle={toggleListening} autoSpeak={autoSpeak} onToggleAutoSpeak={() => setAutoSpeak((v) => !v)} T={T} />
+        <Header lang={lang} setLang={setLang} T={T} autoSpeak={autoSpeak} onToggleAutoSpeak={() => setAutoSpeak((v) => !v)} />
+        <AskBar listening={listening} onToggleMic={toggleListening} T={T} value={askQuery} onChange={setAskQuery}
+          onSubmit={() => { runAsk(askQuery); setAskQuery(""); }} />
 
         {step === "start" && (
           <StartScreen photo={photo} coords={coords} placeName={placeName} locStatus={locStatus} errorMsg={errorMsg}
@@ -370,8 +397,14 @@ Respond ONLY in JSON, no markdown:
         )}
         {step === "loading" && <LoadingScreen text={T("loading")} />}
         {step === "result" && result && (
-          <ResultCard result={result} entryNo={entryNo - 1} onReset={reset} speaking={speaking}
-            onSpeak={() => speak(`${result.place}. ${result.fact}`)} onStopSpeak={stopSpeaking} T={T} />
+          <ResultCard result={result} onReset={reset} speaking={speaking}
+            onSpeak={() => speak([result.place, result.summary, ...(result.highlights || []).map((h) => h.text)].filter(Boolean).join(". "))}
+            onStopSpeak={stopSpeaking} T={T} />
+        )}
+        {step === "ask-loading" && <LoadingScreen text={T("askThinking")} />}
+        {step === "ask-result" && askResult && (
+          <AskResultCard data={askResult} onReset={reset} speaking={speaking}
+            onSpeak={() => speak(askResult.answer)} onStopSpeak={stopSpeaking} T={T} />
         )}
         {step === "error" && <ErrorCard message={errorMsg} onRetry={reset} T={T} />}
 
@@ -388,48 +421,43 @@ Respond ONLY in JSON, no markdown:
   );
 }
 
-function Header({ entryNo, lang, setLang, T }) {
+function Header({ lang, setLang, T, autoSpeak, onToggleAutoSpeak }) {
   return (
-    <div style={{ marginBottom: 16, borderBottom: "1px solid #b58a4a55", paddingBottom: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 18 }}>🧭</span>
-          <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: 0.3 }}>Odkrywca</span>
-        </div>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#b58a4a", letterSpacing: 1 }}>
-          №{String(entryNo).padStart(3, "0")}
-        </span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 9, background: GRADIENT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>🧭</div>
+        <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 19, fontWeight: 700, letterSpacing: -0.3 }}>PsheRadar</span>
       </div>
-      <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 11, color: "#8fae9d" }}>{T("langLabel")}:</span>
-        <select value={lang} onChange={(e) => setLang(e.target.value)} style={{ background: "#0f1c17", color: "#ede4d3", border: "1px solid #b58a4a55", borderRadius: 4, fontSize: 12, padding: "3px 6px" }}>
-          <option value="pl">Polski</option>
-          <option value="en">English</option>
-          <option value="de">Deutsch</option>
-          <option value="uk">Українська</option>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={onToggleAutoSpeak} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, width: 32, height: 32, color: autoSpeak ? CYAN : TEXT_MUTED, cursor: "pointer", fontSize: 14 }}>{autoSpeak ? "🔊" : "🔇"}</button>
+        <select value={lang} onChange={(e) => setLang(e.target.value)} style={{ background: CARD, color: TEXT, border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 12, padding: "6px 8px" }}>
+          <option value="pl">PL</option><option value="en">EN</option><option value="de">DE</option><option value="uk">UA</option>
         </select>
       </div>
     </div>
   );
 }
 
-function VoiceBar({ listening, voiceHint, onToggle, autoSpeak, onToggleAutoSpeak, T }) {
+function AskBar({ listening, onToggleMic, T, value, onChange, onSubmit }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, padding: "10px 12px", borderRadius: 6, background: "#b58a4a14", border: "1px solid #b58a4a33" }}>
-      <button onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 6, background: listening ? "#b58a4a" : "transparent", color: listening ? "#16241f" : "#ede4d3", border: "1px solid #b58a4a99", borderRadius: 4, padding: "7px 10px", fontSize: 12, fontFamily: "'Fraunces', serif", fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
-        <span>{listening ? "🎙️" : "🎤"}</span>{listening ? T("listen") : T("sayCmd")}
-      </button>
-      <span style={{ fontSize: 11, color: "#c9bfa8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{voiceHint || T("voiceHintDefault")}</span>
-      <button onClick={onToggleAutoSpeak} style={{ background: "transparent", border: "none", color: autoSpeak ? "#b58a4a" : "#6b6552", cursor: "pointer", flexShrink: 0, fontSize: 16 }}>{autoSpeak ? "🔊" : "🔇"}</button>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, background: CARD, border: `1px solid ${listening ? "transparent" : BORDER}`, backgroundImage: listening ? GRADIENT : "none", padding: listening ? 1.5 : 0, borderRadius: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, background: CARD, borderRadius: 14.5, width: "100%", padding: "6px 6px 6px 14px" }}>
+        <input value={value} onChange={(e) => onChange(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+          placeholder={listening ? T("listening") : T("voiceHintDefault")}
+          style={{ flex: 1, background: "transparent", border: "none", color: TEXT, fontFamily: "'Inter', sans-serif", fontSize: 14, padding: "8px 0" }} />
+        <button onClick={onToggleMic} style={{ width: 34, height: 34, borderRadius: 10, border: "none", flexShrink: 0, background: listening ? GRADIENT : "rgba(255,255,255,0.06)", color: listening ? "#0d0c18" : TEXT, cursor: "pointer", fontSize: 14 }}>{listening ? "🎙️" : "🎤"}</button>
+        <button onClick={onSubmit} style={{ width: 34, height: 34, borderRadius: 10, border: "none", flexShrink: 0, background: GRADIENT, color: "#0d0c18", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>➤</button>
+      </div>
     </div>
   );
 }
 
 function Viewfinder({ photoUrl }) {
   return (
-    <div style={{ position: "relative", width: 220, height: 220, margin: "0 auto 20px" }}>
-      <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", background: "#0b1512", border: "1px solid #b58a4a44" }}>
-        {photoUrl ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, opacity: 0.5 }}>📷</div>}
+    <div style={{ position: "relative", width: 190, height: 190, margin: "4px auto 22px" }}>
+      <div style={{ position: "absolute", inset: -2, borderRadius: "50%", background: GRADIENT, opacity: 0.5, filter: "blur(14px)" }} />
+      <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", background: BG2, border: `1px solid ${BORDER}` }}>
+        {photoUrl ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, opacity: 0.5 }}>📷</div>}
       </div>
     </div>
   );
@@ -439,90 +467,151 @@ function StartScreen({ photo, coords, placeName, locStatus, errorMsg, fileInputR
   return (
     <div>
       <Viewfinder photoUrl={photo && photo.dataUrl} />
-      <p style={{ textAlign: "center", fontSize: 14, color: "#c9bfa8", marginBottom: 24, lineHeight: 1.5 }}>{T("tagline")}</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <p style={{ textAlign: "center", fontSize: 14, color: TEXT_MUTED, marginBottom: 22, lineHeight: 1.5, padding: "0 8px" }}>{T("tagline")}</p>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={onPhoto} style={{ display: "none" }} />
-        <button onClick={() => (photo ? onClearPhoto() : fileInputRef.current.click())} style={btnStyle(photo ? "secondary" : "primary")}>
+        <button onClick={() => (photo ? onClearPhoto() : fileInputRef.current.click())} style={pillStyle(!!photo)}>
           <span>{photo ? "✕" : "📷"}</span> {photo ? T("removePhoto") : T("takePhoto")}
         </button>
-        <button onClick={onRequestLocation} disabled={locStatus === "fetching"} style={btnStyle(coords ? "secondary" : "primary")}>
+        <button onClick={onRequestLocation} disabled={locStatus === "fetching"} style={pillStyle(!!coords)}>
           <span>📍</span> {locStatus === "fetching" ? T("locating") : coords ? T("locFetched") : T("useLocation")}
         </button>
       </div>
+
       {locStatus === "denied" && <p style={hintStyle}>{T("locDenied")}</p>}
       {coords && (
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#8fae9d", marginTop: 12, textAlign: "center" }}>
-          {coords.lat.toFixed(4)}° N, {coords.lon.toFixed(4)}° E
-          {placeName && <div style={{ color: "#c9bfa8", marginTop: 4, fontSize: 12 }}>{placeName.split(",").slice(0, 3).join(", ")}</div>}
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: TEXT_MUTED, marginBottom: 8, textAlign: "center" }}>
+          {coords.lat.toFixed(4)}°, {coords.lon.toFixed(4)}°
+          {placeName && <div style={{ color: TEXT_MUTED, marginTop: 2 }}>{placeName.split(",").slice(0, 3).join(", ")}</div>}
         </div>
       )}
-      {errorMsg && <p style={{ ...hintStyle, color: "#d98e78" }}>{errorMsg}</p>}
-      <button onClick={onScan} style={{ ...btnStyle("accent"), width: "100%", marginTop: 20, justifyContent: "center" }}><span>🔎</span> {T("scan")}</button>
-      <button onClick={onPromo} style={{ ...btnStyle("secondary"), width: "100%", marginTop: 10, justifyContent: "center" }}><span>🛍️</span> {T("promoButton")}</button>
+      {errorMsg && <p style={{ ...hintStyle, color: "#F87171" }}>{errorMsg}</p>}
+
+      <button onClick={onScan} style={{ width: "100%", marginTop: 14, padding: "14px", borderRadius: 14, border: "none", background: GRADIENT, color: "#0d0c18", fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        🔎 {T("scan")}
+      </button>
+      <button onClick={onPromo} style={{ width: "100%", marginTop: 10, padding: "13px", borderRadius: 14, border: `1px solid ${BORDER}`, background: CARD, color: TEXT, fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        🛍️ {T("promoButton")}
+      </button>
     </div>
   );
 }
 
 function LoadingScreen({ text }) {
   return (
-    <div style={{ textAlign: "center", padding: "60px 0" }}>
-      <div style={{ width: 48, height: 48, margin: "0 auto 16px", border: "2px solid #b58a4a33", borderTopColor: "#b58a4a", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
-      <p style={{ fontSize: 14, color: "#c9bfa8" }}>{text}</p>
+    <div style={{ textAlign: "center", padding: "50px 0" }}>
+      <div style={{ width: 44, height: 44, margin: "0 auto 16px", borderRadius: "50%", background: GRADIENT, animation: "spin 1.2s linear infinite, pulse 1.6s ease-in-out infinite", opacity: 0.9 }} />
+      <p style={{ fontSize: 14, color: TEXT_MUTED }}>{text}</p>
     </div>
   );
 }
 
-function ResultCard({ result, entryNo, onReset, speaking, onSpeak, onStopSpeak, T }) {
-  const verified = result.verified !== false;
-  const sources = Array.isArray(result.sources) ? result.sources.slice(0, 2) : [];
+function VerifiedBadge({ verified, T }) {
   return (
-    <div style={{ background: "#ede4d3", color: "#2a2420", borderRadius: 6, padding: "22px 20px", border: "1px solid #b58a4a55" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#8a6a3f", letterSpacing: 1 }}>{T("fieldNote")} · №{String(entryNo).padStart(3, "0")}</div>
-        <button onClick={speaking ? onStopSpeak : onSpeak} style={{ background: "transparent", border: "none", color: "#8a6a3f", cursor: "pointer", fontSize: 16 }}>{speaking ? "🔇" : "🔊"}</button>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontFamily: "'JetBrains Mono', monospace", padding: "4px 10px", borderRadius: 20, marginBottom: 14, background: verified ? "rgba(34,211,238,0.12)" : "rgba(248,113,113,0.12)", color: verified ? CYAN : "#F87171" }}>
+      {verified ? `✓ ${T("verified")}` : `⚠ ${T("unverified")}`}
+    </div>
+  );
+}
+
+function CardShell({ children }) {
+  return <div style={{ background: CARD, borderRadius: 18, padding: "20px 18px", border: `1px solid ${BORDER}` }}>{children}</div>;
+}
+
+function SpeakButton({ speaking, onSpeak, onStopSpeak }) {
+  return <button onClick={speaking ? onStopSpeak : onSpeak} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 10, width: 30, height: 30, color: TEXT, cursor: "pointer", fontSize: 14 }}>{speaking ? "🔇" : "🔊"}</button>;
+}
+
+function ResultCard({ result, onReset, speaking, onSpeak, onStopSpeak, T }) {
+  const verified = result.verified !== false;
+  const sources = Array.isArray(result.sources) ? result.sources.slice(0, 3) : [];
+  const highlights = Array.isArray(result.highlights) ? result.highlights : [];
+  return (
+    <CardShell>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: TEXT_MUTED, letterSpacing: 1 }}>{T("fieldNote")}</span>
+        <SpeakButton speaking={speaking} onSpeak={onSpeak} onStopSpeak={onStopSpeak} />
       </div>
-      <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 10, lineHeight: 1.2 }}>{result.place}</h2>
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontFamily: "'JetBrains Mono', monospace", padding: "3px 8px", borderRadius: 3, marginBottom: 12, background: verified ? "#3a5a3d18" : "#8a4a3018", color: verified ? "#3a5a3d" : "#8a4a30" }}>
-        {verified ? `✓ ${T("verified")}` : `⚠ ${T("unverified")}`}
-      </div>
-      <div style={{ height: 1, background: "#2a242022", marginBottom: 12 }} />
-      <p style={{ fontSize: 15, lineHeight: 1.6, marginBottom: 14 }}>{result.fact}</p>
+      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, margin: "6px 0 6px", lineHeight: 1.2 }}>{result.place}</h2>
+      {result.summary && <p style={{ fontSize: 14, color: TEXT_MUTED, marginBottom: 12, lineHeight: 1.5 }}>{result.summary}</p>}
+      <VerifiedBadge verified={verified} T={T} />
+
+      {highlights.map((h, i) => (
+        <div key={i} style={{ borderTop: `1px solid ${BORDER}`, padding: "12px 0" }}>
+          {h.title && <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, fontSize: 14, marginBottom: 4, color: CYAN }}>{h.title}</div>}
+          <div style={{ fontSize: 14, lineHeight: 1.6 }}>{h.text}</div>
+        </div>
+      ))}
+
       {sources.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginTop: 10 }}>
           {sources.map((s, i) => (
-            <a key={i} href={s} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#5c4a2f", textDecoration: "none", marginBottom: 4, wordBreak: "break-all" }}>🔗 {s.replace(/^https?:\/\//, "").slice(0, 46)}</a>
+            <a key={i} href={s} target="_blank" rel="noopener noreferrer" style={{ display: "block", fontSize: 11, color: TEXT_MUTED, textDecoration: "none", marginBottom: 3, wordBreak: "break-all" }}>🔗 {s.replace(/^https?:\/\//, "").slice(0, 44)}</a>
           ))}
         </div>
       )}
       {Array.isArray(result.tags) && result.tags.length > 0 && (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
-          {result.tags.map((tag, i) => <span key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, background: "#2a242012", padding: "3px 8px", borderRadius: 3, color: "#5c4a2f" }}>#{tag}</span>)}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14, marginBottom: 16 }}>
+          {result.tags.map((tag, i) => <span key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, background: "rgba(124,92,252,0.14)", padding: "4px 9px", borderRadius: 20, color: VIOLET }}>#{tag}</span>)}
         </div>
       )}
-      <button onClick={onReset} style={{ ...btnStyle("primary"), width: "100%", justifyContent: "center" }}>🔄 {T("newScan")}</button>
-    </div>
+      <NewScanButton onReset={onReset} T={T} />
+    </CardShell>
+  );
+}
+
+function AskResultCard({ data, onReset, speaking, onSpeak, onStopSpeak, T }) {
+  const verified = data.verified !== false;
+  const sources = Array.isArray(data.sources) ? data.sources.slice(0, 3) : [];
+  return (
+    <CardShell>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: TEXT_MUTED, letterSpacing: 1 }}>{T("askAnswer")}</span>
+        <SpeakButton speaking={speaking} onSpeak={onSpeak} onStopSpeak={onStopSpeak} />
+      </div>
+      <p style={{ fontSize: 13, color: TEXT_MUTED, marginBottom: 10, fontStyle: "italic" }}>“{data.question}”</p>
+      <VerifiedBadge verified={verified} T={T} />
+      <p style={{ fontSize: 15, lineHeight: 1.7, marginBottom: 14 }}>{data.answer}</p>
+      {sources.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          {sources.map((s, i) => (
+            <a key={i} href={s} target="_blank" rel="noopener noreferrer" style={{ display: "block", fontSize: 11, color: TEXT_MUTED, textDecoration: "none", marginBottom: 3, wordBreak: "break-all" }}>🔗 {s.replace(/^https?:\/\//, "").slice(0, 44)}</a>
+          ))}
+        </div>
+      )}
+      <NewScanButton onReset={onReset} T={T} />
+    </CardShell>
+  );
+}
+
+function NewScanButton({ onReset, T }) {
+  return (
+    <button onClick={onReset} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "none", background: GRADIENT, color: "#0d0c18", fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+      🔄 {T("newScan")}
+    </button>
   );
 }
 
 function ErrorCard({ message, onRetry, T }) {
   return (
     <div style={{ textAlign: "center", padding: "40px 0" }}>
-      <p style={{ color: "#d98e78", marginBottom: 16, fontSize: 14 }}>{message}</p>
-      <button onClick={onRetry} style={{ ...btnStyle("primary"), margin: "0 auto" }}>🔄 {T("retry")}</button>
+      <p style={{ color: "#F87171", marginBottom: 16, fontSize: 14 }}>{message}</p>
+      <button onClick={onRetry} style={{ padding: "12px 20px", borderRadius: 14, border: "none", background: GRADIENT, color: "#0d0c18", fontWeight: 700, cursor: "pointer" }}>🔄 {T("retry")}</button>
     </div>
   );
 }
 
 function PromoManual({ value, onChange, onSubmit, onBack, T }) {
   return (
-    <div style={{ background: "#ede4d3", color: "#2a2420", borderRadius: 6, padding: "22px 20px", border: "1px solid #b58a4a55" }}>
-      <p style={{ fontSize: 14, marginBottom: 14, lineHeight: 1.5 }}>{T("promoNoShop")}</p>
-      <label style={{ fontSize: 12, color: "#5c4a2f", display: "block", marginBottom: 6 }}>{T("promoManualLabel")}</label>
+    <CardShell>
+      <p style={{ fontSize: 14, marginBottom: 14, lineHeight: 1.5, color: TEXT_MUTED }}>{T("promoNoShop")}</p>
+      <label style={{ fontSize: 12, color: TEXT_MUTED, display: "block", marginBottom: 6 }}>{T("promoManualLabel")}</label>
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={T("promoManualPlaceholder")}
-        style={{ width: "100%", padding: "10px 12px", borderRadius: 4, border: "1px solid #b58a4a55", fontFamily: "'Fraunces', serif", fontSize: 14, marginBottom: 14 }} />
-      <button onClick={onSubmit} style={{ ...btnStyle("accent"), width: "100%", justifyContent: "center", marginBottom: 8 }}>🛍️ {T("promoManualSubmit")}</button>
-      <button onClick={onBack} style={{ ...btnStyle("primary"), width: "100%", justifyContent: "center", color: "#2a2420", border: "1px solid #2a242033" }}>← {T("promoBack")}</button>
-    </div>
+        style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `1px solid ${BORDER}`, background: BG2, color: TEXT, fontFamily: "'Inter', sans-serif", fontSize: 14, marginBottom: 14 }} />
+      <button onClick={onSubmit} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "none", background: GRADIENT, color: "#0d0c18", fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>🛍️ {T("promoManualSubmit")}</button>
+      <button onClick={onBack} style={{ width: "100%", padding: "12px", borderRadius: 14, border: `1px solid ${BORDER}`, background: "transparent", color: TEXT_MUTED, cursor: "pointer" }}>← {T("back")}</button>
+    </CardShell>
   );
 }
 
@@ -530,44 +619,42 @@ function PromoResult({ data, shopHint, onBack, T }) {
   const verified = data.verified !== false;
   const items = Array.isArray(data.items) ? data.items.slice(0, 5) : [];
   return (
-    <div style={{ background: "#ede4d3", color: "#2a2420", borderRadius: 6, padding: "22px 20px", border: "1px solid #b58a4a55" }}>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#8a6a3f", letterSpacing: 1, marginBottom: 6 }}>🛍️ {T("promoButton").toUpperCase()}</div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{data.shop}</h2>
-      {shopHint && shopHint.brand && <div style={{ fontSize: 12, color: "#5c4a2f", marginBottom: 8 }}>{T("shopDetected")} {shopHint.name}</div>}
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontFamily: "'JetBrains Mono', monospace", padding: "3px 8px", borderRadius: 3, marginBottom: 14, background: verified ? "#3a5a3d18" : "#8a4a3018", color: verified ? "#3a5a3d" : "#8a4a30" }}>
-        {verified ? `✓ ${T("verified")}` : `⚠ ${T("unverified")}`}
-      </div>
+    <CardShell>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: TEXT_MUTED, letterSpacing: 1 }}>🛍️ {T("promoButton").toUpperCase()}</span>
+      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 700, margin: "6px 0 4px" }}>{data.shop}</h2>
+      {shopHint && shopHint.name && <div style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 8 }}>{T("shopDetected")} {shopHint.name}</div>}
+      <VerifiedBadge verified={verified} T={T} />
 
-      {items.length === 0 && <p style={{ fontSize: 14, color: "#5c4a2f", marginBottom: 16 }}>{T("promoNoDeals")}</p>}
+      {items.length === 0 && <p style={{ fontSize: 14, color: TEXT_MUTED, marginBottom: 16 }}>{T("promoNoDeals")}</p>}
 
       {items.map((item, i) => (
-        <div key={i} style={{ borderTop: i === 0 ? "1px solid #2a242022" : "none", borderBottom: "1px solid #2a242022", padding: "10px 0" }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>{item.name}</div>
-          <div style={{ fontSize: 13, color: "#3a5a3d", display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {item.promoPrice && <span>💰 {item.promoPrice}</span>}
-            {item.competitorPrice && <span style={{ color: "#8a4a30" }}>vs {item.competitorPrice}</span>}
+        <div key={i} style={{ borderTop: `1px solid ${BORDER}`, padding: "12px 0" }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{item.name}</div>
+          <div style={{ fontSize: 13, display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {item.promoPrice && <span style={{ color: CYAN }}>💰 {item.promoPrice}</span>}
+            {item.competitorPrice && <span style={{ color: "#F87171" }}>vs {item.competitorPrice}</span>}
           </div>
-          {item.note && <div style={{ fontSize: 12, color: "#5c4a2f", marginTop: 3 }}>{item.note}</div>}
-          {item.source && <a href={item.source} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#8a6a3f", wordBreak: "break-all" }}>🔗 {item.source.replace(/^https?:\/\//, "").slice(0, 40)}</a>}
+          {item.note && <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 3 }}>{item.note}</div>}
+          {item.source && <a href={item.source} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: TEXT_MUTED, wordBreak: "break-all" }}>🔗 {item.source.replace(/^https?:\/\//, "").slice(0, 40)}</a>}
         </div>
       ))}
 
-      <p style={{ fontSize: 11, color: "#8a6a3f", marginTop: 14, marginBottom: 16, fontStyle: "italic" }}>{T("promoDisclaimerFixed")}</p>
-
-      <button onClick={onBack} style={{ ...btnStyle("primary"), width: "100%", justifyContent: "center", color: "#2a2420", border: "1px solid #2a242033" }}>← {T("promoBack")}</button>
-    </div>
+      <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 14, marginBottom: 16, fontStyle: "italic" }}>{T("promoDisclaimerFixed")}</p>
+      <button onClick={onBack} style={{ width: "100%", padding: "12px", borderRadius: 14, border: `1px solid ${BORDER}`, background: "transparent", color: TEXT_MUTED, cursor: "pointer" }}>← {T("back")}</button>
+    </CardShell>
   );
 }
 
-function btnStyle(variant) {
-  const base = { display: "flex", alignItems: "center", gap: 8, padding: "11px 16px", borderRadius: 4, border: "1px solid transparent", fontFamily: "'Fraunces', serif", fontSize: 14, fontWeight: 600, cursor: "pointer" };
-  if (variant === "primary") return { ...base, background: "transparent", border: "1px solid #b58a4a99", color: "#ede4d3" };
-  if (variant === "secondary") return { ...base, background: "#b58a4a22", border: "1px solid #b58a4a55", color: "#c9bfa8" };
-  if (variant === "accent") return { ...base, background: "#b58a4a", color: "#16241f", border: "1px solid #b58a4a" };
-  return base;
+function pillStyle(active) {
+  return {
+    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+    padding: "12px 8px", borderRadius: 14, border: `1px solid ${active ? "transparent" : BORDER}`,
+    background: active ? "rgba(34,211,238,0.12)" : CARD, color: active ? CYAN : TEXT,
+    fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer",
+  };
 }
 
-const hintStyle = { fontSize: 12, color: "#8fae9d", textAlign: "center", marginTop: 8 };
+const hintStyle = { fontSize: 12, color: TEXT_MUTED, textAlign: "center", marginBottom: 8 };
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<FieldScout />);

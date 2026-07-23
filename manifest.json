@@ -1,13 +1,13 @@
 {
-  "name": "Odkrywca — Field Scout",
-  "short_name": "Odkrywca",
-  "description": "Skanuje lokalizację lub zdjęcie i znajduje zweryfikowaną ciekawostkę o miejscu.",
+  "name": "PsheRadar — Field Scout",
+  "short_name": "PsheRadar",
+  "description": "Skanuje lokalizację lub zdjęcie i odpowiada na pytania o miejsce, w którym jesteś.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f1c17",
-  "theme_color": "#16241f",
+  "background_color": "#0d0c18",
+  "theme_color": "#0d0c18",
   "lang": "pl",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
